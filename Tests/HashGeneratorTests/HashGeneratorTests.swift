@@ -51,34 +51,45 @@ final class HashGeneratorTests: XCTestCase {
     let generator = HashGenerator(using: .sha256)
     
     let salt1 = HashGenerator.generateSalt(length: 20, kind: .data)
-    let digest1 = generator.append(salt: salt1).hash(valueToBeHashed)
+    let digest1 = generator.appendSalt(data: salt1).hash(valueToBeHashed)
     
     let salt2 = HashGenerator.generateSalt(length: 20, kind: .data)
-    let digest2 = generator.append(salt: salt2).hash(valueToBeHashed)
+    let digest2 = generator.appendSalt(data: salt2).hash(valueToBeHashed)
     
     XCTAssertNotEqual(digest1, digest2)
   }
   
   func testGenerateRandomBytesCommonCrypto() {
+    var bytes = [UInt8](repeating: 0, count: 200)
     measure {
-      var bytes = [UInt8](repeating: 0, count: 200)
       CCRandomGenerateBytes(&bytes, 200)
     }
   }
   
   func testGenerateRandomBytesSec() {
+    var bytes = [UInt8](repeating: 0, count: 200)
     measure {
-      var bytes = [UInt8](repeating: 0, count: 200)
       _ = SecRandomCopyBytes(kSecRandomDefault, 200, &bytes)
     }
   }
   
-  func testGenerateRandomBytesSystem() {
+  func testGenerateRandomBytesSystemUsingCount() {
+    var bytes = [UInt8]()
     measure {
-      var bytes = [UInt8]()
       while bytes.count < 200 {
         bytes.append(.random(in: 0...255))
       }
     }
+    XCTAssertEqual(bytes.count, 200)
+  }
+  
+  func testGenerateRandomBytesSystemUsingEndIndex() {
+    var bytes = [UInt8]()
+    measure {
+      while bytes.endIndex < 200 {
+        bytes.append(.random(in: 0...255))
+      }
+    }
+    XCTAssertEqual(bytes.count, 200)
   }
 }
