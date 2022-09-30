@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
+import CommonCrypto
 @testable import HashGenerator
 
 final class HashGeneratorTests: XCTestCase {
@@ -43,5 +44,41 @@ final class HashGeneratorTests: XCTestCase {
     XCTAssertEqual(
       generator.hash("Hello").string(),
       "8b1a9953c4611296a827abf8c47804d7")
+  }
+  
+  func testSalt() {
+    let valueToBeHashed = "Hello, world!"
+    let generator = HashGenerator(using: .sha256)
+    
+    let salt1 = HashGenerator.generateSalt(length: 20, kind: .data)
+    let digest1 = generator.append(salt: salt1).hash(valueToBeHashed)
+    
+    let salt2 = HashGenerator.generateSalt(length: 20, kind: .data)
+    let digest2 = generator.append(salt: salt2).hash(valueToBeHashed)
+    
+    XCTAssertNotEqual(digest1, digest2)
+  }
+  
+  func testGenerateRandomBytesCommonCrypto() {
+    measure {
+      var bytes = [UInt8](repeating: 0, count: 200)
+      CCRandomGenerateBytes(&bytes, 200)
+    }
+  }
+  
+  func testGenerateRandomBytesSec() {
+    measure {
+      var bytes = [UInt8](repeating: 0, count: 200)
+      _ = SecRandomCopyBytes(kSecRandomDefault, 200, &bytes)
+    }
+  }
+  
+  func testGenerateRandomBytesSystem() {
+    measure {
+      var bytes = [UInt8]()
+      while bytes.count < 200 {
+        bytes.append(.random(in: 0...255))
+      }
+    }
   }
 }
