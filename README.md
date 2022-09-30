@@ -1,13 +1,13 @@
 # HashGenerator
 
-A simple class for generating hashes using commonly available hash algorithms.
+A simple class for generating hash digests using commonly available hash algorithms.
 
 ## Install
 
 Add the following dependency to your `Package.swift` file:
 
 ```swift
-.package(url: "https://github.com/jordanbaird/HashGenerator", from: "0.0.1")
+.package(url: "https://github.com/jordanbaird/HashGenerator", from: "0.0.2")
 ```
 
 ## Usage
