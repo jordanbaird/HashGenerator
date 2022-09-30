@@ -247,56 +247,26 @@ extension HashGenerator {
   /// Changes the algorithm that the generator uses.
   /// - Parameter algorithm: The `HashAlgorithm` to use when computing hash digests.
   @inlinable
-  public func setAlgorithm(_ algorithm: HashAlgorithm) {
+  @discardableResult
+  public func setAlgorithm(_ algorithm: HashAlgorithm) -> Self {
     self.algorithm = algorithm
-  }
-  
-  /// Causes the generator to append a salt value to its input before its next hash.
-  ///
-  /// After the next hash is complete, the generator will revert to hashing without
-  /// appending salt. This method can be used together with `prependingSalt(_:)` and
-  /// both will be applied.
-  @inlinable
-  @discardableResult
-  public func appendingSalt(_ salt: Data) -> Self {
-    appended = salt
     return self
   }
-  
-  /// Causes the generator to prepend a salt value to its input before its next hash.
-  ///
-  /// After the next hash is complete, the generator will revert to hashing without
-  /// prepending salt. This method can be used together with `appendingSalt(_:)` and
-  /// both will be applied.
-  @inlinable
-  @discardableResult
-  public func prependingSalt(_ salt: Data) -> Self {
-    prepended = salt
-    return self
-  }
-  
-  /// Causes the generator to append a salt value to its input before its next hash.
-  ///
-  /// After the next hash is complete, the generator will revert to hashing without
-  /// appending salt. This method can be used together with `prependingSalt(_:)` and
-  /// both will be applied.
-  @inlinable
-  @discardableResult
-  public func appendingSalt(length: Int) -> Self {
-    appended = Self.generateSalt(length: length)
-    return self
-  }
-  
-  /// Causes the generator to prepend a salt value to its input before its next hash.
-  ///
-  /// After the next hash is complete, the generator's will revert to hashing without
-  /// prepending salt. This method can be used together with `appendingSalt(_:)` and
-  /// both will be applied.
-  @inlinable
-  @discardableResult
-  public func prependingSalt(length: Int) -> Self {
-    prepended = Self.generateSalt(length: length)
-    return self
+}
+
+extension HashGenerator {
+  /// Constants that indicate the kind of salt value to be generated.
+  public struct SaltKind<T> {
+    private init() { }
+    
+    /// Specifies a salt value that takes the form of a `Data` object.
+    public static var data: SaltKind<Data> { .init() }
+    
+    /// Specifies a salt value that takes the form of a string.
+    public static var string: SaltKind<String> { .init() }
+    
+    /// Specifies a salt value that takes the form of an array of bytes.
+    public static var bytes: SaltKind<[UInt8]> { .init() }
   }
   
   @inlinable
@@ -305,23 +275,25 @@ extension HashGenerator {
   static func generateRandomBytes(_ count: Int) -> [UInt8] {
     var bytes = [UInt8](repeating: 0, count: count)
     
-    // Try this method first because it is the fastest. It uses a
-    // cryptographically secure random number generator to generate its bytes.
+    // Try this method first. It's fast and uses a cryptographically
+    // secure random number generator to generate its bytes.
     if CCRandomGenerateBytes(&bytes, bytes.count) == kCCSuccess {
       return bytes
     }
     
-    // If the above method fails (which is very unlikely), try this method
+    // If the above method fails (very unlikely), try this method
     // instead. Also cryptographically secure, but a little slower.
     bytes = [UInt8](repeating: 0, count: count)
-    if SecRandomCopyBytes(nil, bytes.count, &bytes) == errSecSuccess {
+    if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess {
       return bytes
     }
     
-    // If we still somehow have a failure, generate bytes one at a time. This
-    // uses the system's default random number generator, which uses a cryptographically
-    // secure source of randomness wherever possible, but, in theory, might not
-    // be quite as secure as the other two, so we only use it as a last resort.
+    // If we still somehow have a failure, generate bytes one at a
+    // time. This uses the system's default random number generator,
+    // which uses a cryptographically secure source of randomness
+    // wherever possible. In theory, however, this might not be quite
+    // as secure as the other two methods, so only use it as a last
+    // resort.
     bytes = []
     while bytes.count < count {
       bytes.append(.random(in: 0...255))
@@ -329,43 +301,152 @@ extension HashGenerator {
     return bytes
   }
   
-  /// Generates a `salt` value that you can add to your input.
+  /// Generates a salt value that can be appended or prepended to a ``HashGenerator``'s
+  /// input. This has the effect of drastically altering the generated digest, and is
+  /// often used as an extra security measure. This method uses a cryptographically
+  /// secure pseudorandom number generator wherever possible.
+  ///
+  /// ```swift
+  /// let generator = HashGenerator(using: .sha256)
+  ///
+  /// let salt1 = HashGenerator.generateSalt(length: 20, kind: .data)
+  /// let digest1 = generator.append(salt: salt1).hash("Hello, world!")
+  ///
+  /// let salt2 = HashGenerator.generateSalt(length: 20, kind: .data)
+  /// let digest2 = generator.append(salt: salt2).hash("Hello, world!")
+  ///
+  /// print(digest1)
+  /// // Prints '14b9c131b7218fafe5ec044f98a43c260fccbe9ab6721fe4a1336dd8e777c807'
+  ///
+  /// print(digest2)
+  /// // Prints '0def742f9414712f25e0274973d8b0582cd23d6edc778327b3aa5af54e868b31'
+  ///
+  /// assert(digest1 != digest2)
+  /// ```
   ///
   /// For more information, see [Salt](https://w.wiki/4o6Y)
-  /// - Parameter length: The number of bytes to generate.
-  /// - Returns: A `Data` instance containing the bytes of the salt.
+  ///
+  /// - Parameters:
+  ///   - length: If `kind` is ``SaltKind/data`` or ``SaltKind/bytes``, this value
+  ///     determines the number of bytes to generate. If `kind` is ``SaltKind/string``,
+  ///     this value determines the length of the generated string.
+  ///   - kind: An instance of ``SaltKind`` that specifies the form that the generated
+  ///     salt should take. If not specified, this value defaults to ``SaltKind/data``.
+  /// - Returns: The bytes of the salt, converted to the specified ``SaltKind``.
+  public static func generateSalt<T>(length: Int, kind: SaltKind<T> = .data) -> T {
+    if T.self is Data.Type {
+      return Data(generateRandomBytes(length)) as! T
+    } else if T.self is String.Type {
+      return generateSalt(length: length, kind: .data)
+        .map { .init(format: "%02x", $0) }
+        .joined()
+        // Count will likely be off, so pad or truncate to
+        // the appropriate length.
+        .padding(toLength: length, withPad: pad, startingAt: 0) as! T
+    } else if T.self is [UInt8].Type {
+      return generateRandomBytes(length) as! T
+    } else {
+      // This will never be called.
+      fatalError()
+    }
+  }
+}
+
+extension HashGenerator {
+  /// Causes the generator to append a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// appending salt. This method can be used together with `prependingSalt(_:)` and
+  /// both will be applied.
   @inlinable
-  public static func generateSalt(length: Int) -> Data {
-    // This just converts the 'generateRandomBytes(_:)' function into data. We
-    // use a series of cryptographically secure methods in that function.
-    // Good flavor.
-    .init(generateRandomBytes(length))
+  @discardableResult
+  @available(*, deprecated, renamed: "append(salt:)")
+  public func appendingSalt(_ salt: Data) -> Self {
+    append(salt: salt)
   }
   
-  /// Generates a `salt` value that you can add to your input.
+  /// Causes the generator to prepend a salt value to its input before its next hash.
   ///
-  /// For more information, see [Salt](https://w.wiki/4o6Y)
-  /// - Parameter length: The number of characters to generate.
-  /// - Returns: A string created by combining the bytes of the salt.
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// prepending salt. This method can be used together with `appendingSalt(_:)` and
+  /// both will be applied.
   @inlinable
-  @_disfavoredOverload
-  public static func generateSalt(length: Int) -> String {
-    let bytes: Data = generateSalt(length: length)
-    return bytes.map { .init(format: "%02x", $0) }.joined()
-      // Count will likely be off, so pad or truncate to
-      // the appropriate length.
-      .padding(toLength: length, withPad: pad, startingAt: 0)
+  @discardableResult
+  @available(*, deprecated, renamed: "prepend(salt:)")
+  public func prependingSalt(_ salt: Data) -> Self {
+    prepend(salt: salt)
   }
   
-  /// Generates a `salt` value that you can add to your input.
+  /// Causes the generator to append a salt value to its input before its next hash.
   ///
-  /// For more information, see [Salt](https://w.wiki/4o6Y)
-  /// - Parameter length: The number of bytes to generate.
-  /// - Returns: An array of bytes created by combining the bytes of the salt.
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// appending salt. This method can be used together with `prependingSalt(_:)` and
+  /// both will be applied.
   @inlinable
-  @_disfavoredOverload
-  public static func generateSalt(length: Int) -> [UInt8] {
-    generateRandomBytes(length)
+  @discardableResult
+  @available(*, deprecated, renamed: "appendSalt(length:)")
+  public func appendingSalt(length: Int) -> Self {
+    appendSalt(length: length)
+  }
+  
+  /// Causes the generator to prepend a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// prepending salt. This method can be used together with `appendingSalt(_:)` and
+  /// both will be applied.
+  @inlinable
+  @discardableResult
+  @available(*, deprecated, renamed: "prependSalt(length:)")
+  public func prependingSalt(length: Int) -> Self {
+    prependSalt(length: length)
+  }
+}
+
+extension HashGenerator {
+  /// Causes the generator to append a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// appending salt. This method can be used together with either ``prepend(salt:)``
+  /// or ``prependSalt(length:)``.
+  @inlinable
+  @discardableResult
+  public func append(salt: Data) -> Self {
+    appended = salt
+    return self
+  }
+  
+  /// Causes the generator to prepend a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// prepending salt. This method can be used together with either ``append(salt:)``
+  /// or ``appendSalt(length:)``.
+  @inlinable
+  @discardableResult
+  public func prepend(salt: Data) -> Self {
+    prepended = salt
+    return self
+  }
+  
+  /// Causes the generator to append a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// appending salt. This method can be used together with either ``prepend(salt:)``
+  /// or ``prependSalt(length:)``.
+  @inlinable
+  @discardableResult
+  public func appendSalt(length: Int) -> Self {
+    append(salt: Self.generateSalt(length: length))
+  }
+  
+  /// Causes the generator to prepend a salt value to its input before its next hash.
+  ///
+  /// After the next hash is complete, the generator will revert to hashing without
+  /// prepending salt. This method can be used together with either ``append(salt:)``
+  /// or ``appendSalt(length:)``.
+  @inlinable
+  @discardableResult
+  public func prependSalt(length: Int) -> Self {
+    prepend(salt: Self.generateSalt(length: length))
   }
 }
 
