@@ -6,12 +6,13 @@
 import Foundation
 import CommonCrypto
 
-/// Generate hash digests from several widely used hash algorithms.
+/// A type that generates hash digests using one of several secure
+/// hash algorithms.
 ///
-/// Create a `HashGenerator` by choosing an algorithm. Then, hash some data
-/// using one of several `hash(_:)` methods. An instance of ``Digest`` will
-/// be produced, from which you retrieve the hash in the form of a string,
-/// data, or bytes.
+/// Create a hash generator by choosing an algorithm. Then, hash some
+/// data using one of several `hash(_:)` methods. An instance of ``Digest``
+/// will be produced, from which you retrieve the hash in the form of
+/// a string, data, or bytes.
 ///
 /// ```swift
 /// let generator = HashGenerator(using: .sha256)
@@ -28,51 +29,42 @@ import CommonCrypto
 /// let generator = HashGenerator(using: .sha256)
 ///
 /// print(generator.hash("Hello, world!"))
-/// // Prints:
-/// // 315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
+/// // Prints: 315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3
 ///
 /// generator.setAlgorithm(.md5)
 /// 
 /// print(generator.hash("Hello, world!"))
-/// // Prints:
-/// // 6cd3556deb0da54bca060b4c39479839
+/// // Prints: 6cd3556deb0da54bca060b4c39479839
 /// ```
 ///
 /// ### Generating Salt
 ///
-/// `HashGenerator` has the ability the generate random salt values of a chosen
-/// length. A salt value can be returned as a string, an array of bytes (`[UInt8]`),
-/// or a `Data` instance.
+/// Hash generators have the ability the generate random salt values
+/// of a chosen length. A salt value can be returned as a string, an
+/// array of bytes, or a `Data` instance.
 ///
 /// ```swift
 /// let saltString = HashGenerator.generateSalt(length: 20, kind: .string)
 /// print(saltString)
-/// // Prints:
-/// // 0a86cd4090f314e67107
+/// // Prints: 0a86cd4090f314e67107
 ///
 /// let saltBytes = HashGenerator.generateSalt(length: 20, kind: .bytes)
 /// print(saltBytes)
-/// // Prints:
-/// // [148, 187, 57, 197, 207, 5, 59, 159, 86, 94, 68, 31, 224, 34, 149, 113, 196, 225, 84, 6]
+/// // Prints: [148, 187, 57, 197, 207, 5, 59, 159, 86, ...]
 ///
 /// let saltData = HashGenerator.generateSalt(length: 20, kind: .data)
 /// print(saltData)
-/// // Prints:
-/// // '20 bytes' (the default Data description)
-///
-/// // Use Data's `map(_:)` function to convert the data into an array of bytes:
-/// print(saltData.map { $0 })
-/// // Prints:
-/// // [197, 246, 75, 47, 47, 250, 174, 98, 155, 45, 19, 120, 76, 111, 139, 165, 160, 113, 139, 122]
+/// // Prints: '20 bytes' (the default Data description)
 /// ```
 ///
 /// ### Appending and Prepending Salt
 ///
-/// `HashGenerator` has 4 methods that allow you to append or prepend salt to the
-/// next value that is hashed. Once that value is hashed, the generator will revert
-/// back to its previous state. The methods all return the generator, allowing for
-/// a declarative-style syntax. You can also chain one method to another to both
-/// append and prepend unique salt values simultaneously.
+/// Hash generators have 4 methods that allow you to append or prepend
+/// salt to the next value that is hashed. Once that value is hashed,
+/// the generator will revert back to its previous state. The methods
+/// all return the generator, allowing for a declarative-style syntax.
+/// You can also chain one method to another to both append and prepend
+/// unique salt values simultaneously.
 ///
 /// ```swift
 /// let generator = HashGenerator(using: .sha256)
@@ -89,11 +81,11 @@ import CommonCrypto
 ///     .hash("Hello, world!")
 /// ```
 ///
-/// ``appendSalt(length:)`` and ``prependSalt(length:)`` both use the static
-/// ``generateSalt(length:kind:)`` method that was mentioned above. ``appendSalt(data:)``
-/// and ``prependSalt(data:)`` both accept custom data. No matter which version of
-/// these methods you use, you can access the salt from properties within the returned
-/// `Digest` instance.
+/// ``appendSalt(length:)`` and ``prependSalt(length:)`` both use the
+/// static ``generateSalt(length:kind:)`` method that was mentioned
+/// above. ``appendSalt(data:)`` and ``prependSalt(data:)`` both accept
+/// custom data. No matter which version of these methods you use, you
+/// can access the salt from properties within the returned digest.
 ///
 /// ```swift
 /// let generator = HashGenerator(using: .sha256)
@@ -104,12 +96,10 @@ import CommonCrypto
 ///     .hash("Hello, world!")
 ///
 /// print((digest.appendedSalt as! Data).map { $0 })
-/// // Prints:
-/// // [65, 153, 211, 18, 45, 176, 184, 166, 196, 167, 192, 77, 43, 31, 1, 82, 165, 213, 50, 164]
+/// // Prints: [65, 153, 211, 18, 45, 176, 184, 166, 196, ...]
 /// 
 /// print((digest.prependedSalt as! Data).map { $0 })
-/// // Prints:
-/// // [212, 206, 125, 27, 191, 138, 21, 31, 218, 152, 95, 28, 72, 56, 98, 13, 250, 169, 234, 147]
+/// // Prints: [212, 206, 125, 27, 191, 138, 21, 31, 218, ...]
 /// ```
 public final class HashGenerator {
     private static let seed = HashGenerator(.sha256).hash(UUID()).string()
@@ -117,8 +107,7 @@ public final class HashGenerator {
     @usableFromInline
     @inline(__always)
     static var pad: String {
-        // It's safe to "unsafely" unwrap here, as we're guaranteed a value.
-        .init(seed.randomElement().unsafelyUnwrapped)
+        String(seed.randomElement()!)
     }
 
     @usableFromInline
@@ -299,7 +288,7 @@ extension HashGenerator {
         return bytes
     }
 
-#if os(macOS)
+    #if os(macOS)
     @usableFromInline
     @inline(__always)
     @_optimize(speed)
@@ -342,17 +331,17 @@ extension HashGenerator {
         // resort.
         generateIndividualBytes(count)
     }
-#endif
+    #endif
 
     @usableFromInline
     @inline(__always)
     @_optimize(speed)
     static func generateRandomBytes(_ count: Int) -> [UInt8] {
-#if os(macOS)
+        #if os(macOS)
         generateRandomBytesMacOS(count)
-#else
+        #else
         generateIndividualBytes(count)
-#endif
+        #endif
     }
 }
 
@@ -408,10 +397,10 @@ extension HashGenerator {
             return Data(generateRandomBytes(length)) as! T
         } else if T.self is String.Type {
             return generateSalt(length: length, kind: .data)
-                .map { .init(format: "%02x", $0) }
+                .map { String(format: "%02x", $0) }
                 .joined()
-            // Count will likely be off, so pad or truncate to
-            // the appropriate length.
+                // Count will likely be off, so pad or truncate to
+                // the appropriate length.
                 .padding(toLength: length, withPad: pad, startingAt: 0) as! T
         } else if T.self is [UInt8].Type {
             return generateRandomBytes(length) as! T
@@ -589,7 +578,8 @@ extension HashGenerator {
         /// - Returns: The data, returned in the specified format.
         @inlinable
         public func format<T>(_ format: DigestFormat<T>) -> T {
-            // We go in the order of least time to compute, to most time to compute.
+            // We go in the order of least time to compute, to most time
+            // to compute.
 
             // We can force cast the values below, as we will have already
             // determined that the value's type is the same as what we're
@@ -605,9 +595,9 @@ extension HashGenerator {
                 // The value of 'format' is '.string'.
                 return description as! T
             } else {
-                // Failure is not possible here. It MUST be one of the above options.
-                // Regardless, to avoid having to return some other value, we throw a
-                // fatal error if we somehow get this far. We won't, but if we do...
+                // Failure is not possible here. It MUST be one of the above
+                // options. Regardless, to avoid having to return some other
+                // value, we throw a fatal error if we somehow get this far.
                 fatalError("Bad format.")
             }
         }
@@ -717,9 +707,11 @@ extension HashGenerator.HashAlgorithm: DeprecationBypassable {
     func _hash(data: Data, length: Int32) -> HashGenerator.Digest {
         let data = NSMutableData(data: data)
 
-        // It's okay to unsafely unwrap this since we're just creating a byte buffer.
-        let digest = NSMutableData(length: Int(length)).unsafelyUnwrapped
-        let digestBytes = digest.mutableBytes.bindMemory(to: UInt8.self, capacity: digest.length)
+        let digest = NSMutableData(length: Int(length))!
+        let digestBytes = digest.mutableBytes.bindMemory(
+            to: UInt8.self,
+            capacity: digest.length
+        )
 
         switch self {
         case .sha256:
@@ -792,7 +784,7 @@ extension HashGenerator.HashAlgorithm: CustomDebugStringConvertible {
 
 extension HashGenerator.Digest: CustomStringConvertible {
     public var description: String {
-        rawValue.map { .init(format: "%02x", $0) }.joined()
+        rawValue.map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -817,9 +809,10 @@ extension HashGenerator.Digest {
     /// merely states that the digest was not computed using one of the available
     /// hash algorithms.
     public static func + (lhs: Self, rhs: Self) -> Self {
-        .init(
+        Self(
             rawValue: lhs.rawValue + rhs.rawValue,
-            algorithm: lhs.algorithm == rhs.algorithm ? lhs.algorithm : .invalid)
+            algorithm: lhs.algorithm == rhs.algorithm ? lhs.algorithm : .invalid
+        )
     }
 
     /// Sets the value of `lhs` to the concatenated result of itself and another
