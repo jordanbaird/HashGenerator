@@ -1,10 +1,7 @@
-//===----------------------------------------------------------------------===//
 //
 // HashGenerator.swift
+// HashGenerator
 //
-// Created: 2022. Author: Jordan Baird.
-//
-//===----------------------------------------------------------------------===//
 
 import Foundation
 import CommonCrypto
