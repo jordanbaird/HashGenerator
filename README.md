@@ -12,7 +12,7 @@ Add the following dependency to your `Package.swift` file:
 
 ## Usage
 
-[Read full documentation here](https://jordanbaird.github.io/HashGenerator/documentation/hashgenerator/hashgenerator)
+[Read the full documentation here](https://swiftpackageindex.com/jordanbaird/HashGenerator/documentation)
 
 ```swift
 let generator = HashGenerator(using: .sha256)
